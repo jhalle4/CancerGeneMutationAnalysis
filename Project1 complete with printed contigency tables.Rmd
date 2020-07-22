@@ -1,0 +1,368 @@
+---
+title: "Project 1"
+author: "Jacob Halle"
+date: "10/27/2019"
+output: html_document
+---
+
+```{r}
+#Set working directory
+setwd("C:/Users/jacob/OneDrive/Documents/Senior/497/Project1")
+#Show working directory
+WD = getwd()
+
+filelist=list.dirs(WD,full.names=TRUE) #Lists everything in directory
+idx=grep("Project1/Clinical_informations",filelist) #Get index of the desired forlder
+idx
+
+clinMerge =list.files(filelist[idx], ignore.case=F)#Get files in the folder
+clinMerge
+idx1 = grep("LUAD.clin.merged",clinMerge) #Get the index of desired file
+Data=read.table(paste(filelist[idx],"/",clinMerge[idx1],sep=""),stringsAsFactors=FALSE,header=TRUE, sep="\t",fill=TRUE,quote="")
+Data = t(Data)
+#Data1 = subset(Data, select=-c(1:6,8:11,14,16:18,20:22,24:50)) #Delete data columns we are not interested in
+clindata = data.frame("Age" = as.numeric(Data[,12]),
+                      "Patient Barcode" = Data[,15], 
+                      "Packs smoked a year" = as.numeric(Data[,409]),
+                      "Year stopped smoking" =as.numeric(Data[,516]),
+                      "Tobacco smoking history" = as.numeric(Data[,521]), 
+                      "Year of Diagnosis" = as.numeric(Data[,525]),
+                      "Year started smoking"= as.numeric(Data[,526])) #Keep data columns we are interested in. This worked better
+stringsAsFactors = FALSE
+headers = FALSE
+write.csv(clindata,file  = "clindata.csv")
+#print(Data1)
+ 
+```
+```{r}
+setwd("C:/Users/jacob/OneDrive/Documents/Senior/497/Project1")
+#Show working directory
+WD = getwd()
+filelist=list.dirs(WD,full.names=TRUE) #Lists everything in directory
+idx = grep("Project1/Mutation_data",filelist) #Get new ID for mutation data
+mutation = list.files(filelist[idx],ignore.case = F)
+counter = 0
+TGCAid = matrix(,nrow = length(mutation), ncol = 1)
+EGFRmut = matrix(,nrow = length(mutation), ncol = 1)
+KRASmut = matrix(,nrow = length(mutation), ncol = 1)
+ALKmut = matrix(,nrow = length(mutation), ncol = 1)
+for (i in 1:length(mutation)){
+  data = read.table(paste(filelist[idx],"/",mutation[i],sep=""),stringsAsFactors=FALSE,header=FALSE, sep="\t",fill=TRUE, quote = "")
+  TGCAid[i] = as.character(data[2,17])
+  data1 = data[1] #creates a table of only the mutated genes
+  if (any(data1[1] == "EGFR")==TRUE){ #Only want to record mutations for this gene if they are present in the patient
+  EGFRid = grep("EGFR",t(data1[1])) #Obtain the x indices of the mutations
+    if (length(EGFRid) == 1){ #Checks how many times the gene mutates
+      EGFRmut[i] = data[EGFRid[1],42]} #Obtain the protein information
+    else if (length(EGFRid) == 2){
+      EGFRmut[i] = paste(data[EGFRid[1],42],data[EGFRid[2],42],sep = ", ")} # Paste it togther
+    else if (length(EGFRid) == 3){
+      EGFRmut[i] = paste(data[EGFRid[1],42],data[EGFRid[2],42],data[EGFRid[3],42],sep = ", ")}
+    else if (length(EGFRid) >3 ){
+      print("nooooo EGFR")}
+  }
+  if (any(data1[1] == "KRAS")==TRUE){ #Repeat for KRAS
+  KRASid = grep("KRAS",t(data1[1])) 
+    if (length(KRASid) == 1){ 
+      KRASmut[i] = data[KRASid[1],42]}
+    else if (length(KRASid) == 2){
+      KRASmut[i] = paste(data[KRASid[1],42],data[KRASid[2],42],sep = ", ")} 
+    else if (length(KRASid) > 2){
+      print("more than 2 KRAS") }
+  }
+  if (any(data1[1] == "ALK")==TRUE){ # Repeat for ALK
+  ALKid = grep("ALK",t(data1[1])) 
+    if (length(ALKid) == 1){ 
+      ALKmut[i] = data[ALKid[1],42]}
+    else if (length(ALKid) == 2){
+      ALKmut[i] = paste(data[ALKid[1],42],data[ALKid[2],42],sep = ", ")} 
+    else if (length(ALKid) == 3){
+      ALKmut[i] = paste(data[ALKid[1],42],data[ALKid[2],42],data[ALKid[3],42],sep = ", ")} 
+    else if (length(ALKid) ==4 ){
+      ALKmut[i] = paste(data[ALKid[1],42],data[ALKid[2],42],data[ALKid[3],42],data[ALKid[4],42],sep = ", ")} 
+    else if (length(ALKid)>5){
+    print("oh no")}
+  }
+}
+
+mutdata = data.frame("TGCA id" = TGCAid,"EGFR Mutations" = EGFRmut,"ALK mutations" = ALKmut,"KRAS mutations" = KRASmut,stringsAsFactors = FALSE)
+write.csv(mutdata,file = 'mutdata.csv' )
+```
+### PART 2 ###
+```{r}
+EGFR_ALK = 0
+ALK_KRAS = 0
+KRAS_EGFR = 0
+counter = 0
+totals = c(1:3)
+for (j in 1:3){ #Determine the total number of patients with the mutations
+  for (i in 1:length(mutdata[,1])){
+    if (is.na(mutdata[i,j+1]) == FALSE){ #Ignore NA
+      counter = counter + 1
+    }
+  }
+  totals[j] = counter
+  counter = 0
+}
+totEGFR = totals[1]
+totALK = totals[2]
+totKRAS = totals[3]
+for (i in 1:length(mutdata[,2])){ #Find all the times one patient has mutations in both EGFR and ALK
+  if (is.na(mutdata[i,2]) == FALSE) { 
+    if (is.na(mutdata[i,3]) == FALSE) {
+      EGFR_ALK = EGFR_ALK + 1
+    }
+  }
+}
+EA_BL = totALK - EGFR_ALK # AE = ALK_EGFR, BL = bottom Left of contigency table
+EA_TR = totEGFR - EGFR_ALK
+EA_BR = length(mutdata[,2])-totEGFR-totALK + EGFR_ALK
+EAtable = matrix(,nrow = 2, ncol = 2) #Allocate contigency table matrix
+EAtable[1,1] = EGFR_ALK #Plut values into a matrix
+EAtable[1,2] = EA_TR
+EAtable[2,1] = EA_BL
+EAtable[2,2] = EA_BR
+for (i in 1:length(mutdata[,2])){ #Find all the times one patient has mutations in both ALK and KRAS
+  if (is.na(mutdata[i,3]) == FALSE) {
+    if (is.na(mutdata[i,4]) == FALSE) {
+      ALK_KRAS = ALK_KRAS + 1
+    }
+  }
+}
+AK_BL = totKRAS - ALK_KRAS
+AK_TR = totALK- ALK_KRAS
+AK_BR = length(mutdata[,3])-totALK-totKRAS + ALK_KRAS
+AKtable = matrix(,nrow=2,ncol=2)
+AKtable[1,1] = ALK_KRAS
+AKtable[1,2] = AK_TR
+AKtable[2,1] = AK_BL
+AKtable[2,2] = AK_BR
+for (i in 1:length(mutdata[,4])){ #Find all the times one patient has mutations in both KRAS and EGFR
+  if (is.na(mutdata[i,4]) == FALSE) {
+    if (is.na(mutdata[i,2]) == FALSE) {
+      KRAS_EGFR = KRAS_EGFR + 1
+    }
+  }
+}
+KE_BL = totEGFR-KRAS_EGFR
+KE_TR = totKRAS-KRAS_EGFR
+KE_BR = length(mutdata[,4])-totEGFR-totKRAS + KRAS_EGFR
+KEtable = matrix(,nrow=2,ncol=2)
+KEtable[1,1] = KRAS_EGFR
+KEtable[1,2] = KE_TR
+KEtable[2,1] = KE_BL
+KEtable[2,2] = KE_BR
+EA = fisher.test(EAtable)
+AK = fisher.test(AKtable)
+KE = fisher.test(KEtable)
+Ftest = data.frame(
+  "genes" = c("EGFR and ALK",",ALK and KRAS","KRAS and EGFR"),
+  "Pvalues" = c(as.numeric(EA[1]),as.numeric(AK[1]),as.numeric(KE[1])),
+  "oddratios" = c(as.numeric(EA[3]),as.numeric(AK[3]),as.numeric(KE[3])), 
+stringsAsFactors = FALSE)
+print(Ftest)
+rownames(EAtable) = c("+EGFR","-EGFR")
+colnames(EAtable) = c("+ALK","-ALK")
+EAtable
+rownames(AKtable) = c("+ALK","-ALK")
+colnames(AKtable) = c("+KRAS","-KRAS")
+AKtable
+rownames(KEtable) = c("+KRAS","-KRAS")
+colnames(KEtable) = c("+EGFR","-EGFR")
+KEtable
+# Biggest odds ration is EGFR and ALK. This means that EGFR and KRAS mutations are the most likely mutations to both be present in a patient.
+# Lowest P value is KRAS and EGFR. It is the only P-value below 0.05. This means that there is a significant chance that EGFR and KRAS mutations are mutually exclusive.The other two pairings have P-values over 0.05, so we cannot say that the two mutations are mutually exclusive.
+ 
+```
+### The merger ###
+```{r}
+clindata1 = clindata[-c(1),] #Get rid of unnecessary first row
+newclin = data.frame(TGCA.id = character(), #Allocate an empty data frame
+        Age = numeric(),
+        packs_smoked_per_year = numeric(),
+        year_stopped_smoking = numeric(),
+        Tobacco_score = numeric(),
+        diagnosis_year = numeric(),
+        year_started_smoking = numeric(),
+        stringsAsFactors = FALSE)
+id = matrix(nrow = 1, ncol = length(mutdata[,1]))
+for (i in 1:length(mutdata[,1])){
+  string1 =strtrim(as.character(mutdata[i,1]),12) #Create a string that will match the clinical data
+  string2=as.character(clindata1[,2]) #Create the string to search for a match in
+  id[i] = grep(string1,string2,ignore.case=TRUE,value = FALSE) #Use the patient ID from the mutation data to search for the indicy of the same patient in the clinical data
+  newclin[i,2:7] =clindata1[id[i],c(1,3:7)] #Create a new data frame for the clinical data with the TGCA id as the first column
+}
+newclin[,1] = TGCAid
+data = merge(mutdata,newclin,by.y = "TGCA.id") #Build new data frame with TGCA id column
+```
+# test if age affects any mutations
+```{r}
+Arange = range(data$Age,na.rm = TRUE) #Use range to determine bin number and size
+numbins = 9
+binsize = (Arange[2]-Arange[1])/numbins # determine size of bins in bar graph
+EGFRcounter = matrix(0,nrow = 1,ncol = numbins) #Allocate matrixes of zeros to count the amount in each bin
+ALKcounter = matrix(0,nrow = 1,ncol = numbins)
+KRAScounter = matrix(0,nrow=1,ncol=numbins)
+num.in.bin = matrix(0,nrow=1,ncol=numbins)
+percentEGFR = matrix(,nrow = 1, ncol = numbins) #matrices to be used later in code
+percentALK = matrix(,nrow = 1,ncol = numbins)
+percentKRAS = matrix(,nrow = 1,ncol = numbins)
+for (bin in 1:numbins){
+  for (i in 1:length(data$Age)){
+    if (is.na(data$Age[i])==FALSE){ #Dont check the data if age is not recorded
+      if (data$Age[i] >= Arange[1]+binsize*(bin-1)+1){ #ONly want to collect data for the bin we are analyzing
+        if (data$Age[i]<= Arange[1]+binsize*(bin)){
+      num.in.bin[bin] = num.in.bin[bin] + 1 # Counter for each patient in bin
+           if (is.na(data$EGFR.Mutations[i])==FALSE){ #Check if EGFR mutation is present
+        EGFRcounter[bin] = EGFRcounter[bin] + 1}
+           if (is.na(data$ALK.mutations[i])==FALSE){ #Check if ALK mutation is present
+        ALKcounter[bin] = ALKcounter[bin]+1}
+           if (is.na(data$KRAS.mutations[i])==FALSE){ #Check if KRAS mutation is present
+        KRAScounter[bin] = KRAScounter[bin]+1}
+      }
+      }
+    }
+  }
+  percentEGFR[bin] = EGFRcounter[bin]/num.in.bin[bin] #Calculate the percentage that each mutation occurs within each age group
+  percentALK[bin] = ALKcounter[bin]/num.in.bin[bin]
+  percentKRAS[bin] = KRAScounter[bin]/num.in.bin[bin]
+}
+bar.data = matrix(,nrow = 3, ncol = numbins) #PLug the percent that each mutation occurs for each age group into a matrix for a bar graph
+bar.data[1,1:numbins] = percentEGFR
+bar.data[2,1:numbins] = percentALK
+bar.data[3,1:numbins] = percentKRAS
+names = c("41-46","47-51","52-56","57-61","62-66","67-71","72-76","77-81","82-86")
+barplot(bar.data,xlab = "Age",ylab = "Percent of Patients with Mutation",main = "Percent of 3 gene mutations that cause lung cancer by age",names.arg=names
+        ,beside=TRUE,col = c("red","green","blue"))
+legend("topleft",c("EGFR","ALK","KRAS"),fill = c("red","green","blue"))
+age.bins = seq(from = 41, to = 82, by = 5) #Matrix for matching a model to the bar graph
+EGFR.lin.relation = lm(percentEGFR[1,]~age.bins) #Fix a linear model across the values in each bin for analysis
+summary(EGFR.lin.relation)
+ALK.lin.relation = lm(percentALK[1,]~age.bins)
+summary(ALK.lin.relation)
+KRAS.lin.relation = lm(percentKRAS[1,]~age.bins)
+summary(KRAS.lin.relation)
+par(mfrow = c(2, 2)) #plot the data in the bar graph
+plot(percentKRAS[1,]~age.bins)
+abline(lm(percentKRAS[1,]~age.bins),col = "blue")
+plot(percentALK[1,]~age.bins)
+abline(lm(percentALK[1,]~age.bins),col = "green")
+plot(percentEGFR[1,]~age.bins)
+abline(lm(percentEGFR[1,]~age.bins),col = "red")
+#To analyze the affect of age on the prevelance of certain genetic mutations, I made a bar graph and did linear regression analysis. In the bar graph I grouped the patients into equally sized bins. I then calculated what percentage of patients in each age group had each mutation. For the linear regression model, I took the values that were obtained in the bar graph and used to lm function to determine if there is any correlation.
+# It is difficult to made any confident conclusions from the bar graph alone, so the linear regression model is used to determine an overall trend. 
+# The R^2 obtained through linear regression is very low, so the line obtained through linear regression is not a very good fit for the data.  
+#The P value for each line was also above 0.05, so the null hypothesis cannot be rejected. The null hypothesis was that age will not affect the prevalence of mutations.
+# The linear regression lines can be useful for obtaining very general knowledge on the general trend between age and prevalence of mutations. KRAS and EGFR mutations become more likely with increased age, while ALK mutations occur less frequently.
+# It is worth mentioning that a nonlinear model would plot the data better and lead to a higher R^2 value. However, there are few data points, so an inflexible model is likely a better choice to track the overall trend. If the data was more nonlinear than linear we would see that in the bar graph, but we do not so a linear model was used.
+#I am assuming:
+#that this data set is representative of the US population as a whole
+#the data is taken from a random, sufficeintly large sample size
+#homogeneity of variance
+#The mean of residuals is zero
+#equal variance
+
+```
+# test if packs smoked for year affects any mutations
+```{r}
+Arange = range(data$packs_smoked_per_year,na.rm = TRUE) #Use range to determine bin number and size
+numbins = 15
+binsize = (150)/numbins # determine size of bins in bar graph
+EGFRcounter = matrix(0,nrow = 1,ncol = numbins) #Allocate matrixes of zeros to count the amount in each bin
+ALKcounter = matrix(0,nrow = 1,ncol = numbins)
+KRAScounter = matrix(0,nrow=1,ncol=numbins)
+num.in.bin = matrix(0,nrow=1,ncol=numbins)
+percentEGFR = matrix(,nrow = 1, ncol = numbins)
+percentALK = matrix(,nrow = 1,ncol = numbins)
+percentKRAS = matrix(,nrow = 1,ncol = numbins)
+for (bin in 1:numbins){
+  for (i in 1:length(data$packs_smoked_per_year)){
+    if (is.na(data$packs_smoked_per_year[i])==FALSE){ #Dont check the data if packs smoked is not recorded
+      if (data$packs_smoked_per_year[i] >= binsize*(bin-1)){ #Only want to collect data for the bin we are analyzing
+        if (data$packs_smoked_per_year[i]<= binsize*(bin)-1){
+      num.in.bin[bin] = num.in.bin[bin] + 1 # Counter for each patient in bin
+           if (is.na(data$EGFR.Mutations[i])==FALSE){ #Check if EGFR mutation is present
+        EGFRcounter[bin] = EGFRcounter[bin] + 1}
+           if (is.na(data$ALK.mutations[i])==FALSE){
+        ALKcounter[bin] = ALKcounter[bin]+1}
+           if (is.na(data$KRAS.mutations[i])==FALSE){
+        KRAScounter[bin] = KRAScounter[bin]+1}
+      }
+      }
+    }
+  }
+  percentEGFR[bin] = EGFRcounter[bin]/num.in.bin[bin] #Calculate the percentage that each mutation occurs within each group
+  percentALK[bin] = ALKcounter[bin]/num.in.bin[bin]
+  percentKRAS[bin] = KRAScounter[bin]/num.in.bin[bin]
+}
+bar.data = matrix(0,nrow = 3, ncol = numbins)
+bar.data[1,1:numbins] = percentEGFR
+bar.data[2,1:numbins] = percentALK
+bar.data[3,1:numbins] = percentKRAS
+names = c("0-9","10-19","20-29","30-39","40-49","50-59","60-69","70-79","80-89","90-99","100-109","110-119","120-129","130-139","140-149")
+barplot(bar.data,xlab = "Packs smoked per year",ylab = "Percent of Patients with Mutation",main = "Percent of 3 gene mutations that cause lung cancer by averaged packs smoked a year",names.arg=names,beside=TRUE,col = c("red","green","blue"))
+legend("topleft",c("EGFR","ALK","KRAS"),fill = c("red","green","blue"))
+packs.smoked.bins = seq(from = 0, to = 149, by = 10) # MAtrix for plotting values in bar graph
+EGFR.lin.relation = lm(percentEGFR[1,1:7]~packs.smoked.bins[1:7]) #Fix a linear model across the values in each bin
+summary(EGFR.lin.relation)
+ALK.lin.relation = lm(percentALK[1,1:7]~packs.smoked.bins[1:7]) # only want first 7 bins because sample size gets too small later
+summary(ALK.lin.relation)
+KRAS.lin.relation = lm(percentKRAS[1,1:7]~packs.smoked.bins[1:7])
+summary(KRAS.lin.relation)
+par(mfrow = c(2, 2))
+plot(packs.smoked.bins[1:7],percentKRAS[1,1:7])
+abline(lm(percentKRAS[1,1:7]~packs.smoked.bins[1:7]),col = "blue")
+plot(percentALK[1,1:7]~packs.smoked.bins[1:7])
+abline(lm(percentALK[1,1:7]~packs.smoked.bins[1:7]),col = "green")
+plot(percentEGFR[1,1:7]~packs.smoked.bins[1:7]) 
+abline(lm(percentEGFR[1,1:7]~packs.smoked.bins[1:7]),col = "red")
+# To test if heavy smokers are more likely to have certain mutations, I also made a bar graph and did linear regression analysis.
+#Note: the bar graph looks weird in this window but if you open it up in a separate window it looks correct
+# Similar to age, only general assumptions can be made as to whether heavy smokers are more likely to get certain gene mutations. The adjusted R^2 values for each line are too low to make confident conclusions. The P values for each line were also over 0.05, so it is unlikely that the number of packs smoked and type of mutation are related. 
+# The general trends that can be determined are that heavy smokers were less likely to get EGFR mutations, more likely to get ALK mutations, and almost equally likely to get KRAS mutations.
+# A larger sample size would add confidence to this analysis. Only the first 7 bins were used in the linear regression because the sample size dropped below 10 at the larger amount of packs smoked which I deemed too low. 
+# Because the P value is over 0.05, the null hypothesis that heavy smokers do not experience more of one type of mutation cannot be rejected.
+#I am assuming:
+#that this data set is representative of the US population as a whole
+#the data is taken from a random, sufficeintly large sample size
+#homogeneity of variance
+#The mean of residuals is zero
+#equal variance
+```
+# How many packs can you smoke until you get cancer
+```{r}
+# The question I am trying to answer is of people who have lung cancer, how many of them were relatively light smokers?
+# I am assuming that the average number of packs smoked was consistent from when the patient started smoking until they got diagnosed
+# Assumptions: If packs smoked per year was NA the data was never recorded and not 0
+# The data was taken from a random, sufficiently large sample size
+#the data is representative of all US smokers
+# My definition of relatively light smokers in this question is those who are 1 standard deviation below the mean 
+n=1
+packs = matrix(0,nrow = length(data$diagnosis_year),ncol = 1)
+for (i in 1:length(data$diagnosis_year))
+  if (is.na(data$packs_smoked_per_year[i]) == FALSE){# Can't analyze data if any NA's are in the row
+      if (is.na(data$year_started_smoking[i])==FALSE){
+        if (is.na(data$year_stopped_smoking[i]) == FALSE){
+          packs[n] = (data$year_stopped_smoking[i] - data$year_started_smoking[i])*data$packs_smoked_per_year[i] #Determine total packs smoked until quitting
+          n = n+1
+        }
+        else if (is.na(data$diagnosis_year[i]) == FALSE){
+          packs[n] = (data$diagnosis_year[i]-data$year_started_smoking[i])*data$packs_smoked_per_year[i] #Determine total packs smoked until diagnosis
+          n = n+1
+      }
+  }
+}
+packs = packs[-105:-230,1] #Delete rows that had no data input
+meanpacks = mean(packs)
+summary(packs)
+hist(packs, breaks = 25,xlab = "Total packs smoked until Diagnosis",main="Total Packs Smoked until Diagnosis")
+sdpacks = sd(packs)
+print(sdpacks)
+n = 0
+for (i in 1:length(packs)) # Find the aount of people who smoked less than the average minus standard deviation
+  if (packs[i] < meanpacks-sdpacks){
+    n = n+1
+  }
+percent.below.1sd = n/length(packs)
+# The average person in this data set smoked 1564 +/- 1379.675 packs of cigarettes until he or she was diagnosis with cancer. Only 11 people were 1 standard deviation below the mean. Of this data, 90% of people who got diagnosed with cancer smoked over 184 packs of cigarrettes in their life time. Smoking must be somewhat habitual for a time for these people. The mean and standard deviation may be elevated by a few outliers that have smoked thousands of packs in their life time. the answer to my question is 10.58% of people who get diagnosed with cancer could be considered light smokers compared to all people who get diagnosed.
+```
